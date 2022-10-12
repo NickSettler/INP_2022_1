@@ -100,6 +100,22 @@ begin
     end if;
   end process ireg_process;
 
+  -- ------------------------------------------------------------
+  -- Instructions list
+  -- ------------------------------------------------------------
+  -- 0x3E - increase pointer
+  -- 0x3C - decrease pointer
+  -- 0x2B - increase value at pointer
+  -- 0x2D - decrease value at pointer
+  -- 0x5B - start while..do loop if value at pointer is not zero
+  -- 0x5D - end while..do loop if value at pointer is not zero
+  -- 0x28 - start do..while loop
+  -- 0x29 - end do..while loop if value at pointer is not zero
+  -- 0x2E - write value at pointer to LCD
+  -- 0x2C - read value from keyboard to pointer
+  -- 0x00 - end of program
+  -- ------------------------------------------------------------
+
   -- Instruction decoder
   ireg_decoder: process(ireg_reg)
   begin
@@ -135,6 +151,7 @@ begin
     end case; -- Operation first nibble
   end process ireg_decoder;
 
+  -- Current FSM state process
   fsm_current_state_process: process(CLK, RESET)
   begin
     if RESET = '1' then
@@ -144,6 +161,7 @@ begin
     end if;
   end process fsm_current_state_process;
 
+  -- Next FSM state process
   fsm_next_state_process: process(current_state)
   begin
     case current_state is
