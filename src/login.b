@@ -7,12 +7,12 @@
 )@
 >--.         tisk znaku "X"
 >---.        tisk znaku "M"
-+++.         tisk znaku "o"
---------.    tisk znaku "g"
-++.          tisk znaku "i"
-+++++.       tisk znaku "n"
+++.          tisk znaku "O"
+------.      tisk znaku "I"
+<-----.      tisk znaku "S"
+>----.       tisk znaku "E"
 >--.         tisk znaku "0"
-.            tisk znaku "0"
++.           tisk znaku "0"
 
 
 Tento kod lze tak jak jej vidite tj vcetne komentaru odsmimulovat 
