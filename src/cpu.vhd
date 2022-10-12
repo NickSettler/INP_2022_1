@@ -65,8 +65,9 @@ architecture behavioral of cpu is
   type fsm_state is (
     state_idle,
     state_fetch,
+    state_decode,
     state_halt
-  );
+  );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
   signal next_state : fsm_state;                  -- next FSM state
@@ -133,4 +134,30 @@ begin
       when others => ireg_decoded <= end_of_program;
     end case; -- Operation first nibble
   end process ireg_decoder;
+
+  fsm_current_state_process: process(CLK, RESET)
+  begin
+    if RESET = '1' then
+      current_state <= state_idle;
+    elsif rising_edge(CLK) and EN = '1' then
+      current_state <= next_state;
+    end if;
+  end process fsm_current_state_process;
+
+  fsm_next_state_process: process(current_state)
+  begin
+    case current_state is
+      -- Idle FSM state
+      when state_idle =>
+        next_state <= state_fetch;
+      -- Fetch FSM state (F)
+      when state_fetch =>
+        next_state <= state_decode;
+      -- Decode FSM state (D)
+      when state_decode =>
+        next_state <= state_halt;
+      when others =>
+        next_state <= state_halt;
+    end case;
+  end process fsm_next_state_process;
 end behavioral;
