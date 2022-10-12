@@ -47,6 +47,21 @@ architecture behavioral of cpu is
   signal ireg_reg : std_logic_vector(7 downto 0); -- instruction register
   signal ireg_ld : std_logic;                     -- load instruction register
 
+  type instruction_type is (
+    increase_pointer,
+    decrease_pointer,
+    increase_value,
+    decrease_value,
+    while_do_start,
+    while_do_end,
+    do_while_start,
+    do_while_end,
+    write_value,
+    read_value,
+    end_of_program
+  );
+  signal ireg_decoded : instruction_type;          -- decoded instruction
+
   type fsm_state is (
     state_idle,
     state_fetch,
@@ -73,7 +88,7 @@ begin
   -- DATA_ADDR <= pc_reg when pc_abus = '1' else (others => 'Z');
 
   -- Instruction register process
-  ireg_process: process(CLK)
+  ireg_process: process(CLK, RESET)
   begin
     if RESET = '1' then
       ireg_reg <= (others => '0');
@@ -83,4 +98,39 @@ begin
       end if;
     end if;
   end process ireg_process;
+
+  -- Instruction decoder
+  ireg_decoder: process(ireg_reg)
+  begin
+    case(ireg_reg(7 downto 4)) is
+      -- Return (halt) operation
+      when x"0" => ireg_decoded <= end_of_program;
+      -- do..while operations / Value operations / IO operations
+      when x"2" =>
+        case(ireg_reg(3 downto 0)) is
+          when x"8" => ireg_decoded <= do_while_start;
+          when x"9" => ireg_decoded <= do_while_end;
+          when x"B" => ireg_decoded <= increase_value;
+          when x"D" => ireg_decoded <= decrease_value;
+          when x"E" => ireg_decoded <= write_value;
+          when x"C" => ireg_decoded <= read_value;
+          when others => ireg_decoded <= end_of_program;
+        end case; -- Operation second nibble
+      -- Pointer operations
+      when x"3" =>
+        case(ireg_reg(3 downto 0)) is
+          when x"E" => ireg_decoded <= increase_pointer;
+          when x"C" => ireg_decoded <= decrease_pointer;
+          when others => ireg_decoded <= end_of_program;
+        end case; -- Operation second nibble
+      -- while..do operations
+      when x"5" =>
+        case ireg_reg(3 downto 0) is
+          when x"B" => ireg_decoded <= while_do_start;
+          when x"D" => ireg_decoded <= while_do_end;
+          when others => ireg_decoded <= end_of_program;
+        end case; -- Operation second nibble
+      when others => ireg_decoded <= end_of_program;
+    end case; -- Operation first nibble
+  end process ireg_decoder;
 end behavioral;
