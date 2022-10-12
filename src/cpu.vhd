@@ -72,4 +72,15 @@ begin
 
   -- DATA_ADDR <= pc_reg when pc_abus = '1' else (others => 'Z');
 
+  -- Instruction register process
+  ireg_process: process(CLK)
+  begin
+    if RESET = '1' then
+      ireg_reg <= (others => '0');
+    elsif rising_edge(CLK) then
+      if ireg_ld = '1' then
+        ireg_reg <= DATA_RDATA;
+      end if;
+    end if;
+  end process ireg_process;
 end behavioral;
