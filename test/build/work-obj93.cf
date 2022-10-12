@@ -1,0 +1,4 @@
+v 4
+file "/Users/nikitamoiseev/Desktop/INP/project_1/test/" "../src/cpu.vhd" "29cfd985d13b74bc4181ceaa6fb04312695d88f1" "20221012092554.449":
+  entity cpu at 6( 214) + 0 on 11;
+  architecture behavioral of cpu at 43( 1940) + 0 on 12;
