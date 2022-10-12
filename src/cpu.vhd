@@ -40,6 +40,21 @@ end cpu;
 --                      Architecture declaration
 -- ----------------------------------------------------------------------------
 architecture behavioral of cpu is
+  signal pc_reg : std_logic_vector(12 downto 0);  -- program counter
+  signal pc_ld : std_logic;                       -- load program counter
+  signal pc_inc : std_logic;                      -- increment program counter
+
+  signal ireg_reg : std_logic_vector(7 downto 0); -- instruction register
+  signal ireg_ld : std_logic;                     -- load instruction register
+
+  type fsm_state is (
+    state_idle,
+    state_fetch,
+    state_halt
+  );
+
+  signal current_state : fsm_state;               -- current FSM state
+  signal next_state : fsm_state;                  -- next FSM state
 begin
 
 end behavioral;
