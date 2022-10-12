@@ -40,12 +40,17 @@ end cpu;
 --                      Architecture declaration
 -- ----------------------------------------------------------------------------
 architecture behavioral of cpu is
-  signal pc_reg : std_logic_vector(12 downto 0);  -- program counter
-  signal pc_ld : std_logic;                       -- load program counter
-  signal pc_inc : std_logic;                      -- increment program counter
+  signal pc_reg : std_logic_vector(12 downto 0);      -- program counter
+  signal pc_ld : std_logic;                           -- load program counter
+  signal pc_inc : std_logic;                          -- increment program counter
 
-  signal ireg_reg : std_logic_vector(7 downto 0); -- instruction register
-  signal ireg_ld : std_logic;                     -- load instruction register
+  signal ireg_reg : std_logic_vector(7 downto 0);     -- instruction register
+  signal ireg_ld : std_logic;                         -- load instruction register
+
+  signal pointer_reg : std_logic_vector(12 downto 0); -- pointer register
+  signal pointer_inc : std_logic;                     -- increment pointer register
+  signal pointer_dec : std_logic;                     -- decrement pointer register
+
 
   type instruction_type is (
     increase_pointer,
@@ -99,6 +104,28 @@ begin
       end if;
     end if;
   end process ireg_process;
+
+  pointer_process: process(CLK, RESET, pointer_inc, pointer_dec)
+  begin
+    if RESET = '1' then
+      pointer_reg <= (others => '0');
+    elsif rising_edge(CLK) then
+      if pointer_inc = '1' then
+        case(pointer_reg(8 downto 0)) is
+          when "111111111" => pointer_reg <= pointer_reg(12 downto 9) & "000000000";
+          when others => pointer_reg <= pointer_reg + 1;
+        end case;
+      elsif pointer_dec = '1' then
+        case(pointer_reg(8 downto 0)) is
+          when "000000000" => pointer_reg <= pointer_reg(12 downto 9) & "111111111";
+          when others => pointer_reg <= pointer_reg - 1;
+        end case;
+      end if;
+    end if;
+  end process pointer_process;
+
+  DATA_ADDR <= pointer_reg;
+  OUT_DATA <= DATA_RDATA;
 
   -- ------------------------------------------------------------
   -- Instructions list
