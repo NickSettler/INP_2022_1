@@ -193,6 +193,14 @@ begin
   -- Next FSM state process
   fsm_next_state_process: process(current_state)
   begin
+    DATA_RDWR <= '0';
+
+    pc_reg <= (others => '0');
+    pc_inc <= '0';
+    pc_ld <= '0';
+
+    ireg_ld <= '0';
+
     case current_state is
       -- Idle FSM state
       when state_idle =>
@@ -202,6 +210,12 @@ begin
         next_state <= state_decode;
       -- Decode FSM state (D)
       when state_decode =>
+        case(ireg_decoded) is
+          when end_of_program => next_state <= state_halt;
+          when increase_pointer => next_state <= state_increase_pointer;
+          when decrease_pointer => next_state <= state_decrease_pointer;
+          when others => next_state <= state_halt;
+        end case;
         next_state <= state_halt;
       when state_increase_pointer =>
         pointer_inc <= '1';
