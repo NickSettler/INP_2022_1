@@ -104,7 +104,8 @@ begin
     end if;
   end process pc_counter;
 
-  -- DATA_ADDR <= pc_reg when pc_abus = '1' else (others => 'Z');
+  -- Getting instruction from memory at address pc_reg
+  DATA_ADDR <= pc_reg when pc_abus = '1' else (others => 'Z');
 
   -- Instruction register process
   ireg_process: process(CLK, RESET)
@@ -121,7 +122,7 @@ begin
   pointer_process: process(CLK, RESET, pointer_inc, pointer_dec)
   begin
     if RESET = '1' then
-      pointer_reg <= (others => '0');
+      pointer_reg <= (1 => '1', others => '0');
     elsif rising_edge(CLK) then
       if pointer_inc = '1' then
         case(pointer_reg(8 downto 0)) is
@@ -137,8 +138,37 @@ begin
     end if;
   end process pointer_process;
 
-  DATA_ADDR <= pointer_reg;
+  addr_mx_process: process(CLK, RESET, addr_mx_sel)
+  begin
+    if RESET = '1' then
+      -- addr_mx_sel <= '0';
+    elsif rising_edge(CLK) then
+      if addr_mx_sel = '0' then
+        DATA_ADDR <= pc_reg;
+      else
+        DATA_ADDR <= pointer_reg;
+      end if;
+    end if;
+  end process addr_mx_process;
+
+  -- DATA_ADDR <= pointer_reg;
   OUT_DATA <= DATA_RDATA;
+
+  wdata_mx_process: process(CLK, RESET, wdata_mx_sel)
+  begin
+    if RESET = '1' then
+      wdata_mx <= (others => '0');
+    elsif rising_edge(CLK) then
+      case wdata_mx_sel is
+        when "00" => wdata_mx <= IN_DATA;
+        when "01" => wdata_mx <= DATA_RDATA + 1;
+        when "10" => wdata_mx <= DATA_RDATA - 1;
+        when others => wdata_mx <= (others => '0');
+      end case;
+    end if;
+  end process wdata_mx_process;
+
+  DATA_WDATA <= wdata_mx;
 
   -- ------------------------------------------------------------
   -- Instructions list
