@@ -51,7 +51,6 @@ architecture behavioral of cpu is
   signal pointer_inc : std_logic;                     -- increment pointer register
   signal pointer_dec : std_logic;                     -- decrement pointer register
 
-
   type instruction_type is (
     increase_pointer,
     decrease_pointer,
@@ -71,7 +70,10 @@ architecture behavioral of cpu is
     state_idle,
     state_fetch,
     state_decode,
-    state_halt
+    state_halt,
+    state_increase_pointer,
+    state_decrease_pointer,
+    state_increament_value_1,
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -201,6 +203,16 @@ begin
       -- Decode FSM state (D)
       when state_decode =>
         next_state <= state_halt;
+      when state_increase_pointer =>
+        pointer_inc <= '1';
+        pc_inc <= '1';
+
+        next_state <= state_fetch;
+      when state_decrease_pointer =>
+        pointer_dec <= '1';
+        pc_inc <= '1';
+
+        next_state <= state_fetch;
       when others =>
         next_state <= state_halt;
     end case;
