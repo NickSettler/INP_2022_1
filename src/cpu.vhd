@@ -76,12 +76,15 @@ architecture behavioral of cpu is
 
   type fsm_state is (
     state_idle,
-    state_fetch,
+    state_fetch_0,
+    state_fetch_1,
     state_decode,
     state_halt,
     state_increase_pointer,
     state_decrease_pointer,
+    state_increament_value_0,
     state_increament_value_1,
+    state_increament_value_2
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -215,18 +218,23 @@ begin
 
     ireg_ld <= '0';
 
-    pointer_reg <= (others => '0');
     pointer_inc <= '0';
     pointer_dec <= '0';
 
+    addr_mx_sel <= '0';
     wdata_mx_sel <= "00";
 
     case current_state is
       -- Idle FSM state
       when state_idle =>
-        next_state <= state_fetch;
-      -- Fetch FSM state (F)
-      when state_fetch =>
+        next_state <= state_fetch_0;
+      -- Fetch FSM state 1 (F)
+      when state_fetch_0 =>
+        next_state <= state_fetch_1;
+        pc_abus <= '1';
+        DATA_EN <= '1';
+      when state_fetch_1 =>
+        ireg_ld <= '1';
         next_state <= state_decode;
       -- Decode FSM state (D)
       when state_decode =>
@@ -234,19 +242,36 @@ begin
           when end_of_program => next_state <= state_halt;
           when increase_pointer => next_state <= state_increase_pointer;
           when decrease_pointer => next_state <= state_decrease_pointer;
+          when increase_value => next_state <= state_increament_value_0;
           when others => next_state <= state_halt;
         end case;
-        next_state <= state_halt;
       when state_increase_pointer =>
         pointer_inc <= '1';
         pc_inc <= '1';
 
-        next_state <= state_fetch;
+        next_state <= state_fetch_0;
       when state_decrease_pointer =>
         pointer_dec <= '1';
         pc_inc <= '1';
 
-        next_state <= state_fetch;
+        next_state <= state_fetch_0;
+      -- Read value from pointer needed to increase
+      when state_increament_value_0 =>
+        addr_mx_sel <= '1';
+        DATA_EN <= '1';
+        DATA_RDWR <= '0';
+
+        next_state <= state_increament_value_1;
+      when state_increament_value_1 =>
+        wdata_mx_sel <= "01";
+
+        next_state <= state_increament_value_2;
+      when state_increament_value_2 =>
+        DATA_EN <= '1';
+        DATA_RDWR <= '1';
+        pc_inc <= '1';
+
+        next_state <= state_fetch_0;
       when others =>
         next_state <= state_halt;
     end case;
