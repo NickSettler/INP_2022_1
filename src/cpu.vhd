@@ -43,6 +43,7 @@ architecture behavioral of cpu is
   signal pc_reg : std_logic_vector(12 downto 0);      -- program counter
   signal pc_ld : std_logic;                           -- load program counter
   signal pc_inc : std_logic;                          -- increment program counter
+  signal pc_abus : std_logic;                         -- program counter to address bus
 
   signal ireg_reg : std_logic_vector(7 downto 0);     -- instruction register
   signal ireg_ld : std_logic;                         -- load instruction register
@@ -50,6 +51,13 @@ architecture behavioral of cpu is
   signal pointer_reg : std_logic_vector(12 downto 0); -- pointer register
   signal pointer_inc : std_logic;                     -- increment pointer register
   signal pointer_dec : std_logic;                     -- decrement pointer register
+
+  signal addr_mx_sel : std_logic;                     -- select data from program counter or ram
+                                                      -- PC [0] / RAM [1]
+
+  signal wdata_mx : std_logic_vector(7 downto 0);     -- mux output
+                                                      -- IN_DATA [00] / *pointer_reg + 1 [01] / *pointer_reg - 1 [10]
+  signal wdata_mx_sel : std_logic_vector(1 downto 0); -- mux selector
 
   type instruction_type is (
     increase_pointer,
@@ -191,15 +199,27 @@ begin
   end process fsm_current_state_process;
 
   -- Next FSM state process
-  fsm_next_state_process: process(current_state)
+  fsm_next_state_process: process(current_state, ireg_decoded)
   begin
+    IN_REQ <= '0';
+
+    OUT_WE <= '0';
+
+    DATA_EN <= '0';
     DATA_RDWR <= '0';
 
     pc_reg <= (others => '0');
     pc_inc <= '0';
     pc_ld <= '0';
+    pc_abus <= '0';
 
     ireg_ld <= '0';
+
+    pointer_reg <= (others => '0');
+    pointer_inc <= '0';
+    pointer_dec <= '0';
+
+    wdata_mx_sel <= "00";
 
     case current_state is
       -- Idle FSM state
