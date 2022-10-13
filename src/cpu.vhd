@@ -52,10 +52,6 @@ architecture behavioral of cpu is
   signal pointer_inc : std_logic;                     -- increment pointer register
   signal pointer_dec : std_logic;                     -- decrement pointer register
 
-  signal addr_mx : std_logic_vector(12 downto 0);     -- address mux
-  signal addr_mx_sel : std_logic;                     -- select data address to work with
-                                                      -- PC [0] / PTR [1]
-
   signal wdata_mx : std_logic_vector(7 downto 0);     -- mux output
                                                       -- IN_DATA [00] / *pointer_reg + 1 [01] / *pointer_reg - 1 [10]
   signal wdata_mx_sel : std_logic_vector(1 downto 0); -- mux selector
@@ -85,12 +81,9 @@ architecture behavioral of cpu is
     state_decrease_pointer,
     state_increament_value_0,
     state_increament_value_1,
-    state_increament_value_2,
-    state_increament_value_3,
     state_decreament_value_0,
     state_decreament_value_1,
-    state_decreament_value_2,
-    state_decreament_value_3
+    state_store_mx_value
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -107,6 +100,8 @@ begin
       end if;
     end if;
   end process pc_counter;
+
+  DATA_ADDR <= pc_reg when pc_abus = '1' else pointer_reg;
 
   -- Instruction register process
   ireg_process: process(CLK, RESET)
@@ -139,24 +134,7 @@ begin
     end if;
   end process pointer_process;
 
-  -- DATA_ADDR <= pointer_reg;
   OUT_DATA <= DATA_RDATA;
-
-  addr_mx_process: process(CLK, RESET, addr_mx_sel)
-  begin
-    if RESET = '1' then
-      -- addr_mx_sel <= '0';
-      addr_mx <= (others => '0');
-    elsif rising_edge(CLK) then
-      if addr_mx_sel = '0' then
-        addr_mx <= pc_reg;
-      elsif addr_mx_sel = '1' then
-        addr_mx <= pointer_reg;
-      end if;
-    end if;
-  end process addr_mx_process;
-
-  DATA_ADDR <= addr_mx;
 
   wdata_mx_process: process(CLK, RESET, wdata_mx_sel)
   begin
@@ -247,14 +225,13 @@ begin
 
     pc_inc <= '0';
     pc_ld <= '0';
-    pc_abus <= '0';
+    pc_abus <= '1';
 
     ireg_ld <= '0';
 
     pointer_inc <= '0';
     pointer_dec <= '0';
 
-    -- addr_mx_sel <= '0';
     wdata_mx_sel <= "00";
 
     case current_state is
@@ -280,56 +257,49 @@ begin
         end case;
       when state_increase_pointer =>
         pointer_inc <= '1';
+        pc_abus <= '0';
         pc_inc <= '1';
 
         next_state <= state_fetch_0;
       when state_decrease_pointer =>
         pointer_dec <= '1';
+        pc_abus <= '0';
         pc_inc <= '1';
 
         next_state <= state_fetch_0;
 
-      -- Set address MX to PTR
-      when state_increament_value_0 =>
-        addr_mx_sel <= '1';
-        next_state <= state_increament_value_1;
       -- Read data at mem[PTR]
-      when state_increament_value_1 =>
+      when state_increament_value_0 =>
+        pc_abus <= '0';
         DATA_EN <= '1';
-        next_state <= state_increament_value_2;
-      -- Increment mem[PTR] by one and increase PC by one
-      when state_increament_value_2 =>
+        next_state <= state_increament_value_1;
+      -- Increment mem[PTR] by one and increase it by one
+      when state_increament_value_1 =>
+        pc_abus <= '0';
         wdata_mx_sel <= "01";
         pc_inc <= '1';
-        next_state <= state_increament_value_3;
-      -- Store incremented mem[PTR]
-      when state_increament_value_3 =>
-        DATA_EN <= '1';
-        DATA_RDWR <= '1';
-
-        addr_mx_sel <= '0';
-        next_state <= state_fetch_0;
+        next_state <= state_store_mx_value;
 
       -- Set address MX to PTR
       when state_decreament_value_0 =>
-        addr_mx_sel <= '1';
-        next_state <= state_decreament_value_1;
-      -- Read data at mem[PTR]
-      when state_decreament_value_1 =>
+        pc_abus <= '0';
         DATA_EN <= '1';
-        next_state <= state_decreament_value_2;
-      -- Decrement mem[PTR] by one and increase PC by one
-      when state_decreament_value_2 =>
+        next_state <= state_decreament_value_1;
+      -- Read data at mem[PTR] and decrease it by one
+      when state_decreament_value_1 =>
+        pc_abus <= '0';
         wdata_mx_sel <= "10";
         pc_inc <= '1';
-        next_state <= state_decreament_value_3;
-      -- Store decremented mem[PTR]
-      when state_decreament_value_3 =>
+        next_state <= state_store_mx_value;
+
+      -- Store updated mem[PTR]
+      when state_store_mx_value =>
+        pc_abus <= '0';
         DATA_EN <= '1';
         DATA_RDWR <= '1';
 
-        addr_mx_sel <= '0';
         next_state <= state_fetch_0;
+      -- Store decremented mem[PTR]
       when others =>
         next_state <= state_halt;
     end case;
