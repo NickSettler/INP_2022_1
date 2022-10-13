@@ -85,7 +85,12 @@ architecture behavioral of cpu is
     state_decrease_pointer,
     state_increament_value_0,
     state_increament_value_1,
-    state_increament_value_2
+    state_increament_value_2,
+    state_increament_value_3,
+    state_decreament_value_0,
+    state_decreament_value_1,
+    state_decreament_value_2,
+    state_decreament_value_3
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -270,6 +275,7 @@ begin
           when increase_pointer => next_state <= state_increase_pointer;
           when decrease_pointer => next_state <= state_decrease_pointer;
           when increase_value => next_state <= state_increament_value_0;
+          when decrease_value => next_state <= state_decreament_value_0;
           when others => next_state <= state_halt;
         end case;
       when state_increase_pointer =>
@@ -298,6 +304,27 @@ begin
         next_state <= state_increament_value_3;
       -- Store incremented mem[PTR]
       when state_increament_value_3 =>
+        DATA_EN <= '1';
+        DATA_RDWR <= '1';
+
+        addr_mx_sel <= '0';
+        next_state <= state_fetch_0;
+
+      -- Set address MX to PTR
+      when state_decreament_value_0 =>
+        addr_mx_sel <= '1';
+        next_state <= state_decreament_value_1;
+      -- Read data at mem[PTR]
+      when state_decreament_value_1 =>
+        DATA_EN <= '1';
+        next_state <= state_decreament_value_2;
+      -- Decrement mem[PTR] by one and increase PC by one
+      when state_decreament_value_2 =>
+        wdata_mx_sel <= "10";
+        pc_inc <= '1';
+        next_state <= state_decreament_value_3;
+      -- Store decremented mem[PTR]
+      when state_decreament_value_3 =>
         DATA_EN <= '1';
         DATA_RDWR <= '1';
 
