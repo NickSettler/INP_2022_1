@@ -52,8 +52,9 @@ architecture behavioral of cpu is
   signal pointer_inc : std_logic;                     -- increment pointer register
   signal pointer_dec : std_logic;                     -- decrement pointer register
 
-  signal addr_mx_sel : std_logic;                     -- select data from program counter or ram
-                                                      -- PC [0] / RAM [1]
+  signal addr_mx : std_logic_vector(12 downto 0);     -- address mux
+  signal addr_mx_sel : std_logic;                     -- select data address to work with
+                                                      -- PC [0] / PTR [1]
 
   signal wdata_mx : std_logic_vector(7 downto 0);     -- mux output
                                                       -- IN_DATA [00] / *pointer_reg + 1 [01] / *pointer_reg - 1 [10]
@@ -91,21 +92,16 @@ architecture behavioral of cpu is
   signal next_state : fsm_state;                  -- next FSM state
 begin
   -- Program counter process
-  pc_counter: process(CLK, RESET, pc_ld, pc_inc)
+  pc_counter: process(CLK, RESET, pc_inc)
   begin
     if RESET = '1' then
       pc_reg <= (others => '0');
     elsif rising_edge(CLK) then
       if pc_inc = '1' then
         pc_reg <= pc_reg + 1;
-      else
-        pc_reg <= (others => '0');
       end if;
     end if;
   end process pc_counter;
-
-  -- Getting instruction from memory at address pc_reg
-  DATA_ADDR <= pc_reg when pc_abus = '1' else (others => 'Z');
 
   -- Instruction register process
   ireg_process: process(CLK, RESET)
@@ -122,7 +118,7 @@ begin
   pointer_process: process(CLK, RESET, pointer_inc, pointer_dec)
   begin
     if RESET = '1' then
-      pointer_reg <= (1 => '1', others => '0');
+      pointer_reg <= ('1', others => '0');
     elsif rising_edge(CLK) then
       if pointer_inc = '1' then
         case(pointer_reg(8 downto 0)) is
@@ -138,21 +134,24 @@ begin
     end if;
   end process pointer_process;
 
+  -- DATA_ADDR <= pointer_reg;
+  OUT_DATA <= DATA_RDATA;
+
   addr_mx_process: process(CLK, RESET, addr_mx_sel)
   begin
     if RESET = '1' then
       -- addr_mx_sel <= '0';
+      addr_mx <= (others => '0');
     elsif rising_edge(CLK) then
       if addr_mx_sel = '0' then
-        DATA_ADDR <= pc_reg;
-      else
-        DATA_ADDR <= pointer_reg;
+        addr_mx <= pc_reg;
+      elsif addr_mx_sel = '1' then
+        addr_mx <= pointer_reg;
       end if;
     end if;
   end process addr_mx_process;
 
-  -- DATA_ADDR <= pointer_reg;
-  OUT_DATA <= DATA_RDATA;
+  DATA_ADDR <= addr_mx;
 
   wdata_mx_process: process(CLK, RESET, wdata_mx_sel)
   begin
@@ -241,7 +240,6 @@ begin
     DATA_EN <= '0';
     DATA_RDWR <= '0';
 
-    pc_reg <= (others => '0');
     pc_inc <= '0';
     pc_ld <= '0';
     pc_abus <= '0';
@@ -251,7 +249,7 @@ begin
     pointer_inc <= '0';
     pointer_dec <= '0';
 
-    addr_mx_sel <= '0';
+    -- addr_mx_sel <= '0';
     wdata_mx_sel <= "00";
 
     case current_state is
@@ -260,9 +258,8 @@ begin
         next_state <= state_fetch_0;
       -- Fetch FSM state 1 (F)
       when state_fetch_0 =>
-        next_state <= state_fetch_1;
-        pc_abus <= '1';
         DATA_EN <= '1';
+        next_state <= state_fetch_1;
       when state_fetch_1 =>
         ireg_ld <= '1';
         next_state <= state_decode;
@@ -285,22 +282,26 @@ begin
         pc_inc <= '1';
 
         next_state <= state_fetch_0;
-      -- Read value from pointer needed to increase
+
+      -- Set address MX to PTR
       when state_increament_value_0 =>
         addr_mx_sel <= '1';
-        DATA_EN <= '1';
-        DATA_RDWR <= '0';
-
         next_state <= state_increament_value_1;
+      -- Read data at mem[PTR]
       when state_increament_value_1 =>
-        wdata_mx_sel <= "01";
-
+        DATA_EN <= '1';
         next_state <= state_increament_value_2;
+      -- Increment mem[PTR] by one and increase PC by one
       when state_increament_value_2 =>
+        wdata_mx_sel <= "01";
+        pc_inc <= '1';
+        next_state <= state_increament_value_3;
+      -- Store incremented mem[PTR]
+      when state_increament_value_3 =>
         DATA_EN <= '1';
         DATA_RDWR <= '1';
-        pc_inc <= '1';
 
+        addr_mx_sel <= '0';
         next_state <= state_fetch_0;
       when others =>
         next_state <= state_halt;
