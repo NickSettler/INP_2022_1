@@ -83,7 +83,12 @@ architecture behavioral of cpu is
     state_increament_value_1,
     state_decreament_value_0,
     state_decreament_value_1,
-    state_store_mx_value
+    state_store_mx_value,
+    state_print_value_0,
+    state_print_value_1,
+    state_read_value_0,
+    state_read_value_1,
+    state_read_value_2
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -214,7 +219,7 @@ begin
   end process fsm_current_state_process;
 
   -- Next FSM state process
-  fsm_next_state_process: process(current_state, ireg_decoded)
+  fsm_next_state_process: process(IN_VLD, IN_DATA, current_state, ireg_decoded)
   begin
     IN_REQ <= '0';
 
@@ -253,6 +258,8 @@ begin
           when decrease_pointer => next_state <= state_decrease_pointer;
           when increase_value => next_state <= state_increament_value_0;
           when decrease_value => next_state <= state_decreament_value_0;
+          when write_value => next_state <= state_print_value_0;
+          when read_value => next_state <= state_read_value_0;
           when others => next_state <= state_halt;
         end case;
       when state_increase_pointer =>
@@ -299,9 +306,50 @@ begin
         DATA_RDWR <= '1';
 
         next_state <= state_fetch_0;
-      -- Store decremented mem[PTR]
+
+      -- Read data at mem[PTR]
+      when state_print_value_0 =>
+        pc_abus <= '0';
+        DATA_EN <= '1';
+
+        next_state <= state_print_value_1;
+      -- Wait for output not to be busy and print mem[PTR]
+      when state_print_value_1 =>
+        next_state <= state_print_value_0;
+
+        if OUT_BUSY = '0' then
+          OUT_WE <= '1';
+          pc_inc <= '1';
+          next_state <= state_fetch_0;
+        end if;
+
+      -- Request input
+      when state_read_value_0 =>
+        IN_REQ <= '1';
+
+        next_state <= state_read_value_1;
+      -- Wait for input to be valid
+      when state_read_value_1 =>
+        next_state <= state_read_value_1;
+        IN_REQ <= '1';
+        wdata_mx_sel <= "00";
+
+        if IN_VLD = '1' then
+          next_state <= state_read_value_2;
+        end if;
+      -- Store input data at mem[PTR]
+      when state_read_value_2 =>
+        pc_abus <= '0';
+        DATA_RDWR <= '1';
+        DATA_EN <= '1';
+        pc_inc <= '1';
+
+        next_state <= state_fetch_0;
+
+      -- Go to next instruction
       when others =>
-        next_state <= state_halt;
+        pc_inc <= '1';
+        next_state <= state_fetch_0;
     end case;
   end process fsm_next_state_process;
 end behavioral;
