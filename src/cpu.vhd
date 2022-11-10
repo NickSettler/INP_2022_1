@@ -104,7 +104,17 @@ architecture behavioral of cpu is
     state_while_do_end_2,
     state_while_do_end_3,
     state_while_do_end_4,
-    state_while_do_end_5
+    state_while_do_end_5,
+    state_do_while_start_0,
+    state_do_while_start_1,
+    state_do_while_start_2,
+    state_do_while_end_0,
+    state_do_while_end_0_1,
+    state_do_while_end_1,
+    state_do_while_end_2,
+    state_do_while_end_3,
+    state_do_while_end_loop_0,
+    state_do_while_end_loop_1
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -297,6 +307,8 @@ begin
           when read_value => next_state <= state_read_value_0;
           when while_do_start => next_state <= state_while_do_start_0;
           when while_do_end => next_state <= state_while_do_end_0;
+          when do_while_start => next_state <= state_do_while_start_0;
+          when do_while_end => next_state <= state_do_while_end_0;
           when others => next_state <= state_halt;
         end case;
       when state_increase_pointer =>
@@ -383,14 +395,14 @@ begin
 
         next_state <= state_fetch_0;
 
-      -- Start while..do loop
+      -- while..do start state 1/4
       when state_while_do_start_0 =>
         pc_inc <= '1';
         pc_abus <= '0';
         DATA_EN <= '1';
 
         next_state <= state_while_do_start_1;
-      -- s
+      -- while..do start state 2/4
       when state_while_do_start_1 =>
         if DATA_RDATA /= (DATA_RDATA'range => '0') then
           next_state <= state_fetch_0;
@@ -400,7 +412,7 @@ begin
 
           next_state <= state_while_do_start_2;
         end if;
-      --fe
+      -- while..do start state 3/4
       when state_while_do_start_2 =>
         if counter_reg = (counter_reg'range => '0') then
           next_state <= state_fetch_0;
@@ -415,20 +427,25 @@ begin
 
           next_state <= state_while_do_start_3;
         end if;
-      -- wef
+
+      -- while..do start state 4/4
       when state_while_do_start_3 =>
         DATA_EN <= '1';
 
         next_state <= state_while_do_start_2;
 
-      -- End while..do loop
+      -- while..do end state 1/5
       when state_while_do_end_0 =>
         pc_abus <= '0';
         DATA_EN <= '1';
 
         next_state <= state_while_do_end_0_1;
+
+      -- while..do end state 2/5
       when state_while_do_end_0_1 =>
         next_state <= state_while_do_end_1;
+
+      -- while..do end state 3/5
       when state_while_do_end_1 =>
         if DATA_RDATA = (DATA_RDATA'range => '0') then
           pc_inc <= '1';
@@ -440,7 +457,7 @@ begin
 
           next_state <= state_while_do_end_4;
         end if;
-      -- asd
+      -- while..do end state 4/5
       when state_while_do_end_2 =>
         if counter_reg = (counter_reg'range => '0') then
           next_state <= state_fetch_0;
@@ -453,7 +470,7 @@ begin
 
           next_state <= state_while_do_end_3;
         end if;
-      -- wde4
+      -- while..do end state 5/5
       when state_while_do_end_3 =>
         if counter_reg = (counter_reg'range => '0') then
           pc_inc <= '1';
@@ -462,18 +479,99 @@ begin
         end if;
 
         next_state <= state_while_do_end_4;
-      -- we23
+      -- while..do end loop state 1/2
       when state_while_do_end_4 =>
         DATA_EN <= '1';
 
         next_state <= state_while_do_end_5;
-      -- ewegfr
+      -- while..do end loop state 2/2
       when state_while_do_end_5 =>
         next_state <= state_while_do_end_2;
 
+      -- do..while start state 1/2
+      when state_do_while_start_0 =>
+        pc_inc <= '1';
+        DATA_EN <= '1';
+
+        next_state <= state_do_while_start_1;
+
+      -- do..while start state 2/2
+      when state_do_while_start_1 =>
+        if DATA_RDATA /= (DATA_RDATA'range => '0') then
+          next_state <= state_fetch_0;
+        else
+          counter_inc <= '1';
+          DATA_EN <= '1';
+
+          -- next_state <= state_while_do_start_2;
+        end if;
+
+      -- do..while end state 1/5
+      when state_do_while_end_0 =>
+        pc_abus <= '0';
+        DATA_EN <= '1';
+
+        next_state <= state_do_while_end_0_1;
+
+      -- do..while end state 2/5
+      when state_do_while_end_0_1 =>
+        next_state <= state_do_while_end_1;
+
+      -- do..while end state 3/5
+      when state_do_while_end_1 =>
+        if DATA_RDATA = (DATA_RDATA'range => '0') then
+          pc_inc <= '1';
+
+          next_state <= state_fetch_0;
+        else
+          counter_inc <= '1';
+          pc_dec <= '1';
+
+          next_state <= state_while_do_end_4;
+        end if;
+
+        next_state <= state_do_while_end_loop_0;
+
+      -- do..while end state 4/5
+      when state_do_while_end_2 =>
+        if counter_reg = (counter_reg'range => '0') then
+          next_state <= state_fetch_0;
+        else
+          case(DATA_RDATA(7 downto 0)) is
+            when X"28" => counter_dec <= '1';
+            when X"29" => counter_inc <= '1';
+            when others => null;
+          end case;
+
+          next_state <= state_do_while_end_3;
+        end if;
+
+      -- do..while end state 5/5
+      when state_do_while_end_3 =>
+        if counter_reg = (counter_reg'range => '0') then
+          pc_inc <= '1';
+        else
+          pc_dec <= '1';
+        end if;
+
+        next_state <= state_do_while_end_loop_0;
+
+      -- do..while end loop state 1/2
+      when state_do_while_end_loop_0 =>
+        DATA_EN <= '1';
+
+        next_state <= state_do_while_end_loop_1;
+
+      -- do..while end loop state 2/2
+      when state_do_while_end_loop_1 =>
+        next_state <= state_do_while_end_2;
+
       -- Go to next instruction
       when others =>
-        pc_inc <= '1';
+        if DATA_RDATA /= (DATA_RDATA'range => '0') then
+          pc_inc <= '1';
+        end if;
+
         next_state <= state_fetch_0;
     end case;
   end process fsm_next_state_process;
