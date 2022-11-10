@@ -43,6 +43,7 @@ architecture behavioral of cpu is
   signal pc_reg : std_logic_vector(12 downto 0);      -- program counter
   signal pc_ld : std_logic;                           -- load program counter
   signal pc_inc : std_logic;                          -- increment program counter
+  signal pc_dec : std_logic;                          -- decrement program counter
   signal pc_abus : std_logic;                         -- program counter to address bus
 
   signal ireg_reg : std_logic_vector(7 downto 0);     -- instruction register
@@ -51,6 +52,10 @@ architecture behavioral of cpu is
   signal pointer_reg : std_logic_vector(12 downto 0); -- pointer register
   signal pointer_inc : std_logic;                     -- increment pointer register
   signal pointer_dec : std_logic;                     -- decrement pointer register
+
+  signal counter_reg : std_logic_vector(7 downto 0);  -- counter register
+  signal counter_inc : std_logic;                     -- increment counter register
+  signal counter_dec : std_logic;                     -- decrement counter register
 
   signal wdata_mx : std_logic_vector(7 downto 0);     -- mux output
                                                       -- IN_DATA [00] / *pointer_reg + 1 [01] / *pointer_reg - 1 [10]
@@ -88,7 +93,18 @@ architecture behavioral of cpu is
     state_print_value_1,
     state_read_value_0,
     state_read_value_1,
-    state_read_value_2
+    state_read_value_2,
+    state_while_do_start_0,
+    state_while_do_start_1,
+    state_while_do_start_2,
+    state_while_do_start_3,
+    state_while_do_end_0,
+    state_while_do_end_0_1,
+    state_while_do_end_1,
+    state_while_do_end_2,
+    state_while_do_end_3,
+    state_while_do_end_4,
+    state_while_do_end_5
   );                                              -- Finite State Machine states
 
   signal current_state : fsm_state;               -- current FSM state
@@ -102,6 +118,8 @@ begin
     elsif rising_edge(CLK) then
       if pc_inc = '1' then
         pc_reg <= pc_reg + 1;
+      elsif pc_dec = '1' then
+        pc_reg <= pc_reg - 1;
       end if;
     end if;
   end process pc_counter;
@@ -140,6 +158,19 @@ begin
   end process pointer_process;
 
   OUT_DATA <= DATA_RDATA;
+
+  counter_process: process(CLK, RESET, counter_inc, counter_dec)
+  begin
+    if RESET = '1' then
+      counter_reg <= (others => '0');
+    elsif rising_edge(CLK) then
+      if counter_inc = '1' then
+        counter_reg <= counter_reg + 1;
+      elsif counter_dec = '1' then
+        counter_reg <= counter_reg - 1;
+      end if;
+    end if;
+  end process counter_process;
 
   wdata_mx_process: process(CLK, RESET, wdata_mx_sel)
   begin
@@ -229,6 +260,7 @@ begin
     DATA_RDWR <= '0';
 
     pc_inc <= '0';
+    pc_dec <= '0';
     pc_ld <= '0';
     pc_abus <= '1';
 
@@ -236,6 +268,9 @@ begin
 
     pointer_inc <= '0';
     pointer_dec <= '0';
+
+    counter_inc <= '0';
+    counter_dec <= '0';
 
     wdata_mx_sel <= "00";
 
@@ -260,6 +295,8 @@ begin
           when decrease_value => next_state <= state_decreament_value_0;
           when write_value => next_state <= state_print_value_0;
           when read_value => next_state <= state_read_value_0;
+          when while_do_start => next_state <= state_while_do_start_0;
+          when while_do_end => next_state <= state_while_do_end_0;
           when others => next_state <= state_halt;
         end case;
       when state_increase_pointer =>
@@ -345,6 +382,94 @@ begin
         pc_inc <= '1';
 
         next_state <= state_fetch_0;
+
+      -- Start while..do loop
+      when state_while_do_start_0 =>
+        pc_inc <= '1';
+        pc_abus <= '0';
+        DATA_EN <= '1';
+
+        next_state <= state_while_do_start_1;
+      -- s
+      when state_while_do_start_1 =>
+        if DATA_RDATA /= (DATA_RDATA'range => '0') then
+          next_state <= state_fetch_0;
+        else
+          counter_inc <= '1';
+          DATA_EN <= '1';
+
+          next_state <= state_while_do_start_2;
+        end if;
+      --fe
+      when state_while_do_start_2 =>
+        if counter_reg = (counter_reg'range => '0') then
+          next_state <= state_fetch_0;
+        else
+          if DATA_RDATA = x"5B" then
+            counter_inc <= '1';
+          elsif DATA_RDATA = x"5D" then
+            counter_dec <= '1';
+          end if;
+
+          pc_inc <= '1';
+
+          next_state <= state_while_do_start_3;
+        end if;
+      -- wef
+      when state_while_do_start_3 =>
+        DATA_EN <= '1';
+
+        next_state <= state_while_do_start_2;
+
+      -- End while..do loop
+      when state_while_do_end_0 =>
+        pc_abus <= '0';
+        DATA_EN <= '1';
+
+        next_state <= state_while_do_end_0_1;
+      when state_while_do_end_0_1 =>
+        next_state <= state_while_do_end_1;
+      when state_while_do_end_1 =>
+        if DATA_RDATA = (DATA_RDATA'range => '0') then
+          pc_inc <= '1';
+
+          next_state <= state_fetch_0;
+        else
+          counter_inc <= '1';
+          pc_dec <= '1';
+
+          next_state <= state_while_do_end_4;
+        end if;
+      -- asd
+      when state_while_do_end_2 =>
+        if counter_reg = (counter_reg'range => '0') then
+          next_state <= state_fetch_0;
+        else
+          case(DATA_RDATA(7 downto 0)) is
+            when X"5B" => counter_dec <= '1';
+            when X"5D" => counter_inc <= '1';
+            when others => null;
+          end case;
+
+          next_state <= state_while_do_end_3;
+        end if;
+      -- wde4
+      when state_while_do_end_3 =>
+        if counter_reg = (counter_reg'range => '0') then
+          pc_inc <= '1';
+        else
+          pc_dec <= '1';
+        end if;
+
+        next_state <= state_while_do_end_4;
+      -- we23
+      when state_while_do_end_4 =>
+        DATA_EN <= '1';
+
+        next_state <= state_while_do_end_5;
+      -- ewegfr
+      when state_while_do_end_5 =>
+        next_state <= state_while_do_end_2;
 
       -- Go to next instruction
       when others =>
